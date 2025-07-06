@@ -1,120 +1,50 @@
-# azure-pipelines.yml
 name: Build-Pipeline-$(Date:yyyyMMdd)$(Rev:.r)
 
-# CI Triggers - Continuous Integration (ONLY ONE trigger section!)
 trigger:
   branches:
     include:
     - main
     - develop
-    - release/*
-    exclude:
-    - feature/experimental/*
-    - hotfix/temp/*
-  
-  # Path-based triggers
-  paths:
-    include:
-    - src/*
-    - tests/*
-    - package.json
-    exclude:
-    - docs/*
-    - README.md
-    - .gitignore
 
-# PR Triggers - Pull Request validation
 pr:
   branches:
     include:
     - main
-    - develop
-  paths:
-    include:
-    - src/*
-    - tests/*
-    exclude:
-    - docs/*
 
-# Scheduled Triggers - Nightly builds
-schedules:
-- cron: "0 2 * * *"  # 2 AM UTC daily
-  displayName: Nightly build
-  branches:
-    include:
-    - main
-  always: true
+# Use self-hosted agent instead of Microsoft-hosted
+pool:
+  name: 'Default'  # Changed from vmImage: 'ubuntu-latest'
 
 variables:
   buildConfiguration: 'Release'
-  nodeVersion: '18.x'
 
-pool:
-  vmImage: 'ubuntu-latest'
-
-stages:
-- stage: Build
-  displayName: 'Build and Test'
-  jobs:
-  - job: BuildJob
+jobs:
+- job: BuildJob
+  displayName: 'Build on Self-Hosted Agent'
+  steps:
+  
+  - script: |
+      echo "Build triggered by: $(Build.Reason)"
+      echo "Source branch: $(Build.SourceBranch)"
+      echo "Running on self-hosted agent"
+      echo "Current time: $(date)"
+    displayName: 'Display Build Info'
+  
+  - script: |
+      echo "Installing dependencies..."
+      # Add your build steps here
+      echo "Build completed on local agent"
     displayName: 'Build Application'
-    steps:
-    
-    # Display trigger information
-    - script: |
-        echo "Build triggered by: $(Build.Reason)"
-        echo "Source branch: $(Build.SourceBranch)"
-        echo "Target branch: $(System.PullRequest.TargetBranch)"
-        echo "Build ID: $(Build.BuildId)"
-        echo "Current time: $(date)"
-      displayName: 'Display Build Trigger Info'
-    
-    # Setup Node.js
-    - task: NodeTool@0
-      inputs:
-        versionSpec: '$(nodeVersion)'
-      displayName: 'Install Node.js'
-    
-    # Install dependencies
-    - script: |
-        npm init -y
-        npm install --save-dev jest
-        npm install express
-      displayName: 'Install Dependencies'
-    
-    # Run tests
-    - script: |
-        echo "Running unit tests..."
-        echo "Tests completed successfully"
-      displayName: 'Run Tests'
-    
-    # Build application
-    - script: |
-        echo "Building application..."
-        echo "Build configuration: $(buildConfiguration)"
-        mkdir -p $(Build.ArtifactStagingDirectory)/app
-        cp -r src/* $(Build.ArtifactStagingDirectory)/app/ || echo "Source files copied"
-      displayName: 'Build Application'
-    
-    # Publish build artifacts
-    - task: PublishBuildArtifacts@1
-      inputs:
-        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-        ArtifactName: 'drop'
-        publishLocation: 'Container'
-      displayName: 'Publish Build Artifacts'
-
-- stage: CodeQuality
-  displayName: 'Code Quality Checks'
-  dependsOn: Build
-  condition: and(succeeded(), in(variables['Build.Reason'], 'PullRequest', 'IndividualCI'))
-  jobs:
-  - job: QualityGate
-    displayName: 'Quality Gate'
-    steps:
-    - script: |
-        echo "Running code quality checks..."
-        echo "Linting code..."
-        echo "Security scan..."
-        echo "Quality gate passed"
-      displayName: 'Code Quality Analysis'
+  
+  - script: |
+      echo "Creating build artifacts..."
+      mkdir -p $(Build.ArtifactStagingDirectory)/app
+      echo "Artifact created" > $(Build.ArtifactStagingDirectory)/app/build-output.txt
+    displayName: 'Create Artifacts'
+  
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      ArtifactName: 'drop'
+      publishLocation: 'Container'
+    displayName: 'Publish Artifacts'
